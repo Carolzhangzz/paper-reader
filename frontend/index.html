@@ -7,121 +7,110 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
   <!-- Header -->
   <header>
     <div class="header-left">
+      <img src="favicon.svg" alt="" width="24" height="24">
       <h1>Paper Reader</h1>
-      <span class="subtitle">Powered by Claude</span>
     </div>
-    <div class="header-right">
+    <div class="header-center">
       <div class="input-bar">
-        <input type="text" id="paper-url" placeholder="Paste arXiv, DOI, Semantic Scholar, or any paper URL..." autocomplete="off">
+        <input type="text" id="paper-url" placeholder="Paste arXiv URL, DOI, or any paper link..." autocomplete="off">
         <button id="load-btn" class="btn btn-primary">Load</button>
       </div>
     </div>
+    <div class="header-right">
+      <select id="translate-lang">
+        <option value="zh">→ 中文</option>
+        <option value="en">→ English</option>
+      </select>
+      <button id="btn-translate" class="btn btn-primary" disabled>Translate</button>
+      <button id="btn-chat-toggle" class="btn" disabled>Q&A</button>
+    </div>
   </header>
 
-  <!-- Loading State -->
+  <!-- Loading -->
   <div id="loading-state" class="loading-bar hidden">
-    <div class="loading-bar-inner"></div>
+    <div class="spinner-sm"></div>
     <span id="loading-text">Loading paper...</span>
   </div>
 
   <!-- Empty State -->
   <div id="empty-state" class="empty-state">
-    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3">
+    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25">
       <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
       <polyline points="14 2 14 8 20 8"/>
     </svg>
     <h2>Paste a paper URL to get started</h2>
-    <p>Supports arXiv, DOI, Semantic Scholar, HuggingFace Papers, ADS, and direct PDF links</p>
+    <p>Supports arXiv, DOI, Semantic Scholar, HuggingFace, ADS, and direct PDF links</p>
     <div class="example-links">
-      <a href="#" class="example-link" data-url="https://arxiv.org/abs/2301.00234">arxiv.org/abs/2301.00234</a>
+      <a href="#" class="example-link" data-url="https://arxiv.org/abs/2301.00234">ICL Survey</a>
       <a href="#" class="example-link" data-url="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>
     </div>
   </div>
 
-  <!-- Main Content (hidden until paper loaded) -->
+  <!-- Main: PDF left + Translation right -->
   <main id="main-content" class="hidden">
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="paper-meta">
-        <h2 id="paper-title" class="paper-title"></h2>
-        <p id="paper-authors" class="paper-authors"></p>
+    <!-- Left: PDF Viewer -->
+    <section class="pane pane-pdf">
+      <div class="pane-header">
+        <span id="pdf-title">Original PDF</span>
+        <div class="pdf-controls">
+          <button id="zoom-out" class="btn btn-sm">-</button>
+          <span id="zoom-level">100%</span>
+          <button id="zoom-in" class="btn btn-sm">+</button>
+        </div>
       </div>
-      <div class="toolbar-actions">
-        <select id="translate-lang">
-          <option value="zh">Translate → 中文</option>
-          <option value="en">Translate → English</option>
-        </select>
-        <button id="btn-translate" class="btn btn-primary">Translate All</button>
-        <button id="btn-summarize" class="btn">Summary</button>
-        <button id="btn-extract" class="btn">Key Points</button>
-        <button id="btn-chat-toggle" class="btn">Q&A Chat</button>
+      <div id="pdf-viewer" class="pdf-viewer"></div>
+    </section>
+
+    <!-- Divider -->
+    <div class="pane-divider"></div>
+
+    <!-- Right: Translation -->
+    <section class="pane pane-right">
+      <div class="pane-header">
+        <div class="pane-tabs">
+          <button class="pane-tab active" data-pane="translation">Translation</button>
+          <button class="pane-tab" data-pane="summary">Summary</button>
+          <button class="pane-tab" data-pane="keypoints">Key Points</button>
+        </div>
       </div>
-    </div>
+      <div id="pane-translation" class="pane-body pane-content active">
+        <div class="pane-placeholder">Click <strong>Translate</strong> to start</div>
+      </div>
+      <div id="pane-summary" class="pane-body pane-content">
+        <div class="pane-placeholder">Switch to this tab and it will auto-generate</div>
+      </div>
+      <div id="pane-keypoints" class="pane-body pane-content">
+        <div class="pane-placeholder">Switch to this tab and it will auto-generate</div>
+      </div>
+    </section>
 
-    <!-- Two-pane reader -->
-    <div class="reader">
-      <!-- Left: Original Paper -->
-      <section class="reader-pane pane-original">
-        <div class="pane-header">
-          <span>Original</span>
-          <span id="page-info" class="page-info"></span>
-        </div>
-        <div id="original-content" class="pane-body"></div>
-      </section>
-
-      <!-- Divider -->
-      <div class="reader-divider"></div>
-
-      <!-- Right: Translation / Analysis -->
-      <section class="reader-pane pane-translation">
-        <div class="pane-header">
-          <div class="pane-tabs">
-            <button class="pane-tab active" data-pane="translation">Translation</button>
-            <button class="pane-tab" data-pane="summary">Summary</button>
-            <button class="pane-tab" data-pane="keypoints">Key Points</button>
-          </div>
-        </div>
-        <div id="pane-translation" class="pane-body pane-content active">
-          <div class="pane-placeholder">Click "Translate All" to translate the paper</div>
-        </div>
-        <div id="pane-summary" class="pane-body pane-content">
-          <div class="pane-placeholder">Click "Summary" to generate</div>
-        </div>
-        <div id="pane-keypoints" class="pane-body pane-content">
-          <div class="pane-placeholder">Click "Key Points" to extract</div>
-        </div>
-      </section>
-    </div>
-
-    <!-- Chat Panel (slide in) -->
+    <!-- Chat Panel -->
     <div id="chat-panel" class="chat-panel hidden">
       <div class="chat-header">
-        <h3>Q&A Chat</h3>
+        <h3>Q&A</h3>
         <div>
           <button id="clear-chat" class="btn btn-ghost btn-sm">Clear</button>
-          <button id="close-chat" class="btn btn-ghost btn-sm">Close</button>
+          <button id="close-chat" class="btn btn-ghost btn-sm">✕</button>
         </div>
       </div>
       <div id="chat-messages" class="chat-messages">
-        <div class="chat-empty"><p>Ask questions about the paper</p></div>
+        <div class="chat-empty"><p>Ask about the paper</p></div>
       </div>
       <div id="suggested-questions" class="suggested-questions">
-        <button class="suggestion" data-q="What is the main contribution of this paper?">Main contribution?</button>
-        <button class="suggestion" data-q="Explain the methodology in simple terms">Methodology?</button>
+        <button class="suggestion" data-q="What is the main contribution?">Main contribution?</button>
+        <button class="suggestion" data-q="Explain the methodology simply">Methodology?</button>
         <button class="suggestion" data-q="What are the limitations?">Limitations?</button>
       </div>
       <div class="chat-input-bar">
-        <textarea id="chat-input" placeholder="Ask about the paper..." rows="1"></textarea>
-        <button id="chat-send" class="btn btn-primary">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <textarea id="chat-input" placeholder="Ask..." rows="1"></textarea>
+        <button id="chat-send" class="btn btn-primary btn-sm">Send</button>
       </div>
     </div>
   </main>

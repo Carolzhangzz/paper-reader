@@ -4,7 +4,7 @@ import traceback
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,6 +56,14 @@ async def api_load_paper(req: LoadRequest):
     except Exception as e:
         logger.error(f"Load paper error: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to load paper: {e}")
+
+
+@app.get("/api/paper/{paper_id}/pdf")
+async def api_get_pdf(paper_id: str):
+    paper = get_paper(paper_id)
+    if not paper or "pdf_bytes" not in paper:
+        raise HTTPException(status_code=404, detail="PDF not found")
+    return Response(content=paper["pdf_bytes"], media_type="application/pdf")
 
 
 @app.post("/api/paper/summarize")

@@ -269,6 +269,7 @@ async def load_paper(url: str) -> dict:
         "fullText": extracted["fullText"],
         "sections": extracted["sections"],
         "numPages": extracted["numPages"],
+        "pdf_bytes": pdf_bytes,
     }
 
     pid = store_paper(paper)
