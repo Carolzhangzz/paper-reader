@@ -17,7 +17,6 @@ function initPaperLoading() {
   const loadBtn = document.getElementById('load-btn');
   loadBtn.addEventListener('click', () => handleLoad(urlInput.value));
   urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleLoad(urlInput.value); });
-
   document.querySelectorAll('.example-link').forEach(el => {
     el.addEventListener('click', e => { e.preventDefault(); urlInput.value = el.dataset.url; handleLoad(el.dataset.url); });
   });
@@ -27,7 +26,6 @@ async function handleLoad(url) {
   url = url.trim();
   if (!url) return showToast('Please enter a URL');
   setLoading(true, 'Loading paper...');
-
   try {
     const paper = await loadPaper(url);
     state.paperId = paper.id;
@@ -42,14 +40,11 @@ async function handleLoad(url) {
     document.getElementById('btn-translate').disabled = false;
     document.getElementById('btn-chat-toggle').disabled = false;
 
-    // Reset right pane
     document.getElementById('pane-translation').innerHTML = '<div class="pane-placeholder">Click <strong>Translate</strong> to start</div>';
     document.getElementById('pane-summary').innerHTML = '<div class="pane-placeholder">Switch to this tab to auto-generate</div>';
     document.getElementById('pane-keypoints').innerHTML = '<div class="pane-placeholder">Switch to this tab to auto-generate</div>';
 
-    // Load PDF into viewer
     await renderPdf(paper.id);
-
     showToast(`Loaded: ${paper.numPages} pages`, 'success');
   } catch (err) {
     showToast(err.message);
@@ -58,13 +53,12 @@ async function handleLoad(url) {
   }
 }
 
-// ===== PDF Rendering =====
+// ===== PDF Rendering (Retina-sharp) =====
 async function renderPdf(paperId) {
   const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
 
-  const pdfUrl = `/api/paper/${paperId}/pdf`;
-  const doc = await pdfjsLib.getDocument(pdfUrl).promise;
+  const doc = await pdfjsLib.getDocument(`/api/paper/${paperId}/pdf`).promise;
   state.pdfDoc = doc;
   state.zoom = 1.0;
   document.getElementById('zoom-level').textContent = '100%';
@@ -76,17 +70,27 @@ async function renderAllPages() {
   viewer.innerHTML = '';
   if (!state.pdfDoc) return;
 
+  const dpr = window.devicePixelRatio || 1;
+
   for (let i = 1; i <= state.pdfDoc.numPages; i++) {
     const page = await state.pdfDoc.getPage(i);
-    const scale = state.zoom * 1.5; // base scale for readability
-    const viewport = page.getViewport({ scale });
+    // CSS size = zoom * 1.2 base scale
+    const cssScale = state.zoom * 1.2;
+    const viewport = page.getViewport({ scale: cssScale });
 
     const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    viewer.appendChild(canvas);
+    // Render at higher resolution for sharpness
+    canvas.width = viewport.width * dpr;
+    canvas.height = viewport.height * dpr;
+    // Display at CSS size
+    canvas.style.width = viewport.width + 'px';
+    canvas.style.height = viewport.height + 'px';
 
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    viewer.appendChild(canvas);
+    await page.render({ canvasContext: ctx, viewport }).promise;
   }
 }
 
@@ -112,10 +116,8 @@ function initPaneTabs() {
       tab.classList.add('active');
       const pane = tab.dataset.pane;
       document.getElementById(`pane-${pane}`).classList.add('active');
-
-      // Auto-generate on first switch
-      if (pane === 'summary' && !state.summaryDone && state.paperId) { autoSummarize(); }
-      if (pane === 'keypoints' && !state.keypointsDone && state.paperId) { autoExtract(); }
+      if (pane === 'summary' && !state.summaryDone && state.paperId) autoSummarize();
+      if (pane === 'keypoints' && !state.keypointsDone && state.paperId) autoExtract();
     });
   });
 }
@@ -146,7 +148,6 @@ async function autoExtract() {
 function initActions() {
   document.getElementById('btn-translate').addEventListener('click', async () => {
     if (!state.paperId) return;
-    // Switch to translation tab
     activatePane('translation');
     const lang = document.getElementById('translate-lang').value;
     const target = createStreamTarget('pane-translation');

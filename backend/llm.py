@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import pty
 import re
@@ -6,7 +7,6 @@ from collections.abc import AsyncGenerator
 
 
 def _clean_env() -> dict:
-    """Return env without CLAUDECODE to allow nested claude CLI calls."""
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
     return env
@@ -19,17 +19,14 @@ def chunk_text(text: str, max_tokens: int = 12000) -> list[str]:
     max_chars = max_tokens * 4
     if len(text) <= max_chars:
         return [text]
-
     chunks = []
     paragraphs = text.split("\n\n")
     current = ""
-
     for para in paragraphs:
         if len(current) + len(para) > max_chars and current:
             chunks.append(current.strip())
             current = ""
         current += para + "\n\n"
-
     if current.strip():
         chunks.append(current.strip())
     return chunks
@@ -41,13 +38,11 @@ def get_paper_context(paper: dict, max_tokens: int = 24000) -> str:
         text += f"Abstract: {paper['abstract']}\n\n"
     for s in paper.get("sections", []):
         text += f"## {s['heading']}\n{s['content']}\n\n"
-
     chunks = chunk_text(text, max_tokens)
     return chunks[0] if chunks else text[:max_tokens * 4]
 
 
 def _strip_ansi(text: str) -> str:
-    """Remove terminal escape sequences from PTY output."""
     text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
     text = re.sub(r'\x1b\][^\x07]*\x07', '', text)
     text = re.sub(r'\x1b[()][AB012]', '', text)
@@ -56,11 +51,13 @@ def _strip_ansi(text: str) -> str:
 
 
 async def stream_claude(prompt: str) -> AsyncGenerator[str, None]:
-    """Run `claude -p` with PTY for real-time unbuffered streaming."""
+    """Run claude -p with PTY for real-time streaming. Uses --allowedTools '' to skip MCP loading."""
     master_fd, slave_fd = pty.openpty()
 
     proc = await asyncio.create_subprocess_exec(
-        "claude", "-p", prompt, "--model", MODEL,
+        "claude", "-p", prompt,
+        "--model", MODEL,
+        "--allowedTools", "",
         stdout=slave_fd,
         stderr=asyncio.subprocess.PIPE,
         env=_clean_env(),
@@ -68,7 +65,6 @@ async def stream_claude(prompt: str) -> AsyncGenerator[str, None]:
     os.close(slave_fd)
 
     loop = asyncio.get_event_loop()
-
     try:
         while True:
             try:

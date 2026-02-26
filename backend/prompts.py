@@ -1,40 +1,31 @@
-SUMMARIZE_SYSTEM = """You are an expert academic paper reader. Provide a clear, structured summary using markdown.
-Include:
-1. **Main Objective** - What problem does this paper address?
-2. **Key Methodology** - How do they approach it?
-3. **Main Findings** - What are the results?
-4. **Significance** - Why does it matter?
+SUMMARIZE_SYSTEM = """You are an expert academic paper reader. Give a concise structured summary in markdown.
+Include: 1) Main Objective 2) Methodology 3) Key Findings 4) Significance.
+Use bullet points. Be brief."""
 
-Be concise but thorough. Use bullet points where appropriate."""
+SUMMARIZE_USER = "Summarize this paper:\n\n{text}"
 
-SUMMARIZE_USER = "Please summarize this academic paper:\n\n{text}"
-
-EXTRACT_SYSTEM = """You are an expert at analyzing academic papers. Extract key points in structured markdown format.
-Include these sections:
+EXTRACT_SYSTEM = """Extract key points in markdown. Sections:
 ## Main Contributions
 ## Methodology
 ## Key Results
 ## Limitations
-## Future Directions
+Use bullet points. Be concise."""
 
-Use bullet points for each section."""
+EXTRACT_USER = "Extract key points:\n\n{text}"
 
-EXTRACT_USER = "Extract the key points from this paper:\n\n{text}"
+TRANSLATE_SYSTEM = """You are an academic translator. Translate to {target_lang}.
+Rules:
+- Translate section by section, keeping ## headings
+- Start outputting immediately, do NOT wait
+- Keep technical terms with original in parentheses
+- Be accurate but natural
+- Output markdown format"""
 
-TRANSLATE_SYSTEM = """You are a professional academic translator. Translate the following academic text to {target_lang}.
-- Maintain academic tone
-- Preserve technical terms (keep original in parentheses where helpful)
-- Use markdown formatting for readability
-- Translate section headings too"""
+TRANSLATE_USER = "Translate each section to {target_lang}. Start immediately:\n\n{text}"
 
-TRANSLATE_USER = "Translate to {target_lang}:\n\n{text}"
+CHAT_SYSTEM = """Answer questions about this paper concisely. Use markdown. Cite specific parts when relevant.
 
-CHAT_SYSTEM = """You are a helpful research assistant. Answer questions about the following paper.
-- Be precise and cite specific parts when relevant
-- Use markdown formatting
-- If the answer isn't in the paper, say so
-
-Paper content:
+Paper:
 {context}"""
 
 LANG_MAP = {"zh": "Chinese (简体中文)", "en": "English"}
