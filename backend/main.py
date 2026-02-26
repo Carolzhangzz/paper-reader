@@ -1,8 +1,13 @@
 import json
+import logging
+import traceback
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from .models import LoadRequest, SummarizeRequest, ExtractRequest, TranslateRequest, ChatRequest
 from .paper_ingestion import load_paper, get_paper
@@ -49,6 +54,7 @@ async def api_load_paper(req: LoadRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Load paper error: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to load paper: {e}")
 
 

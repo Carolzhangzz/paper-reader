@@ -1,5 +1,13 @@
 import asyncio
+import os
 from collections.abc import AsyncGenerator
+
+
+def _clean_env() -> dict:
+    """Return env without CLAUDECODE to allow nested claude CLI calls."""
+    env = os.environ.copy()
+    env.pop("CLAUDECODE", None)
+    return env
 
 
 def chunk_text(text: str, max_tokens: int = 12000) -> list[str]:
@@ -41,6 +49,7 @@ async def stream_claude(prompt: str) -> AsyncGenerator[str, None]:
         "claude", "-p", prompt,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=_clean_env(),
     )
 
     while True:
