@@ -49,7 +49,7 @@ async def api_load_paper(req: LoadRequest):
             "authors": paper["authors"],
             "abstract": paper["abstract"],
             "numPages": paper["numPages"],
-            "sections": [{"heading": s["heading"], "preview": s["content"][:200]} for s in paper["sections"]],
+            "sections": [{"heading": s["heading"], "content": s["content"]} for s in paper["sections"]],
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -125,6 +125,11 @@ async def api_chat(req: ChatRequest):
 
 app.mount("/css", StaticFiles(directory=FRONTEND_DIR / "css"), name="css")
 app.mount("/js", StaticFiles(directory=FRONTEND_DIR / "js"), name="js")
+
+
+@app.get("/favicon.svg")
+async def serve_favicon():
+    return FileResponse(FRONTEND_DIR / "favicon.svg")
 
 
 @app.get("/")

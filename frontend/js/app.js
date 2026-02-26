@@ -1,26 +1,17 @@
-// ===== Main Application Logic =====
-
 import {
   loadPaper, streamSummarize, streamExtract, streamTranslate, streamChat,
 } from './api.js';
 
 import {
-  showPaperInfo, renderSections, addChatMessage,
-  updateLastAssistantMessage, createStreamTarget,
-  showToast, setLoading,
+  showPaperInfo, renderOriginalSections, createStreamTarget,
+  addChatMessage, updateLastAssistantMessage, showToast, setLoading,
 } from './components.js';
 
-// ===== State =====
-const state = {
-  paperId: null,
-  paper: null,
-  chatHistory: [],
-};
+const state = { paperId: null, paper: null, chatHistory: [] };
 
-// ===== Init =====
 document.addEventListener('DOMContentLoaded', () => {
   initPaperLoading();
-  initTabs();
+  initPaneTabs();
   initActions();
   initChat();
 });
@@ -31,13 +22,10 @@ function initPaperLoading() {
   const loadBtn = document.getElementById('load-btn');
 
   loadBtn.addEventListener('click', () => handleLoad(urlInput.value));
-  urlInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleLoad(urlInput.value);
-  });
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleLoad(urlInput.value); });
 
-  // Example links
   document.querySelectorAll('.example-link').forEach(el => {
-    el.addEventListener('click', (e) => {
+    el.addEventListener('click', e => {
       e.preventDefault();
       urlInput.value = el.dataset.url;
       handleLoad(el.dataset.url);
@@ -50,23 +38,20 @@ async function handleLoad(url) {
   if (!url) return showToast('Please enter a URL');
 
   setLoading(true, 'Loading paper...');
-  resetState();
 
   try {
     const paper = await loadPaper(url);
     state.paperId = paper.id;
     state.paper = paper;
+    state.chatHistory = [];
 
     showPaperInfo(paper);
-    renderSections(paper.sections);
 
-    // Enable chat
-    document.getElementById('chat-input').disabled = false;
-    document.getElementById('chat-send').disabled = false;
-    document.getElementById('suggested-questions').classList.remove('hidden');
+    // Load full sections for the original pane
+    renderOriginalSections(paper.sections);
 
-    // Show action buttons
-    document.querySelectorAll('.btn-action').forEach(b => b.classList.remove('hidden'));
+    // Reset right pane
+    resetRightPane();
 
     showToast(`Loaded: ${paper.numPages} pages`, 'success');
   } catch (err) {
@@ -76,133 +61,134 @@ async function handleLoad(url) {
   }
 }
 
-function resetState() {
-  state.paperId = null;
-  state.paper = null;
-  state.chatHistory = [];
-
-  document.getElementById('summary-content').innerHTML = '';
-  document.getElementById('keypoints-content').innerHTML = '';
-  document.getElementById('translation-content').innerHTML = '';
-  document.getElementById('chat-messages').innerHTML =
-    '<div class="chat-empty"><p>Load a paper to start asking questions</p></div>';
-  document.querySelectorAll('.btn-action').forEach(b => b.classList.remove('hidden'));
+function resetRightPane() {
+  document.getElementById('pane-translation').innerHTML = '<div class="pane-placeholder">Click "Translate All" to translate the paper</div>';
+  document.getElementById('pane-summary').innerHTML = '<div class="pane-placeholder">Click "Summary" to generate</div>';
+  document.getElementById('pane-keypoints').innerHTML = '<div class="pane-placeholder">Click "Key Points" to extract</div>';
 }
 
-// ===== Tabs =====
-function initTabs() {
-  document.querySelectorAll('.tab').forEach(tab => {
+// ===== Pane Tabs =====
+function initPaneTabs() {
+  document.querySelectorAll('.pane-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.pane-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.pane-content').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+      document.getElementById(`pane-${tab.dataset.pane}`).classList.add('active');
     });
   });
 }
 
-// ===== LLM Actions =====
+// ===== Actions =====
 function initActions() {
-  document.getElementById('btn-summarize').addEventListener('click', async () => {
+  document.getElementById('btn-translate').addEventListener('click', async () => {
     if (!state.paperId) return;
-    const btn = document.getElementById('btn-summarize');
-    btn.classList.add('hidden');
-    const target = createStreamTarget('summary-content');
+    // Switch to translation tab
+    activatePane('translation');
+    const lang = document.getElementById('translate-lang').value;
+    const target = createStreamTarget('pane-translation');
+    const btn = document.getElementById('btn-translate');
+    btn.disabled = true;
     try {
-      await streamSummarize(state.paperId, {
+      await streamTranslate(state.paperId, lang, {
         onChunk: (_, full) => target.update(full),
-        onDone: (full) => target.done(full),
+        onDone: full => { target.done(full); btn.disabled = false; },
       });
     } catch (err) {
       target.done(`Error: ${err.message}`);
-      btn.classList.remove('hidden');
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-summarize').addEventListener('click', async () => {
+    if (!state.paperId) return;
+    activatePane('summary');
+    const target = createStreamTarget('pane-summary');
+    const btn = document.getElementById('btn-summarize');
+    btn.disabled = true;
+    try {
+      await streamSummarize(state.paperId, {
+        onChunk: (_, full) => target.update(full),
+        onDone: full => { target.done(full); btn.disabled = false; },
+      });
+    } catch (err) {
+      target.done(`Error: ${err.message}`);
+      btn.disabled = false;
     }
   });
 
   document.getElementById('btn-extract').addEventListener('click', async () => {
     if (!state.paperId) return;
+    activatePane('keypoints');
+    const target = createStreamTarget('pane-keypoints');
     const btn = document.getElementById('btn-extract');
-    btn.classList.add('hidden');
-    const target = createStreamTarget('keypoints-content');
+    btn.disabled = true;
     try {
       await streamExtract(state.paperId, {
         onChunk: (_, full) => target.update(full),
-        onDone: (full) => target.done(full),
+        onDone: full => { target.done(full); btn.disabled = false; },
       });
     } catch (err) {
       target.done(`Error: ${err.message}`);
-      btn.classList.remove('hidden');
-    }
-  });
-
-  document.getElementById('btn-translate').addEventListener('click', async () => {
-    if (!state.paperId) return;
-    const btn = document.getElementById('btn-translate');
-    btn.classList.add('hidden');
-    const lang = document.getElementById('translate-lang').value;
-    const target = createStreamTarget('translation-content');
-    try {
-      await streamTranslate(state.paperId, lang, {
-        onChunk: (_, full) => target.update(full),
-        onDone: (full) => target.done(full),
-      });
-    } catch (err) {
-      target.done(`Error: ${err.message}`);
-      btn.classList.remove('hidden');
+      btn.disabled = false;
     }
   });
 }
 
+function activatePane(name) {
+  document.querySelectorAll('.pane-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.pane-content').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.pane-tab[data-pane="${name}"]`).classList.add('active');
+  document.getElementById(`pane-${name}`).classList.add('active');
+}
+
 // ===== Chat =====
 function initChat() {
+  const chatPanel = document.getElementById('chat-panel');
   const input = document.getElementById('chat-input');
-  const sendBtn = document.getElementById('chat-send');
-  const clearBtn = document.getElementById('clear-chat');
 
-  sendBtn.addEventListener('click', () => sendMessage());
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  document.getElementById('btn-chat-toggle').addEventListener('click', () => {
+    chatPanel.classList.toggle('hidden');
+  });
+  document.getElementById('close-chat').addEventListener('click', () => {
+    chatPanel.classList.add('hidden');
   });
 
+  document.getElementById('chat-send').addEventListener('click', sendMessage);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
   input.addEventListener('input', () => {
     input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    input.style.height = Math.min(input.scrollHeight, 100) + 'px';
   });
 
-  clearBtn.addEventListener('click', () => {
+  document.getElementById('clear-chat').addEventListener('click', () => {
     state.chatHistory = [];
-    document.getElementById('chat-messages').innerHTML =
-      '<div class="chat-empty"><p>Ask questions about the paper</p></div>';
+    document.getElementById('chat-messages').innerHTML = '<div class="chat-empty"><p>Ask questions about the paper</p></div>';
   });
 
   document.querySelectorAll('.suggestion').forEach(btn => {
-    btn.addEventListener('click', () => {
-      input.value = btn.dataset.q;
-      sendMessage();
-    });
+    btn.addEventListener('click', () => { input.value = btn.dataset.q; sendMessage(); });
   });
 }
 
 async function sendMessage() {
   const input = document.getElementById('chat-input');
-  const question = input.value.trim();
-  if (!question || !state.paperId) return;
-
+  const q = input.value.trim();
+  if (!q || !state.paperId) return;
   input.value = '';
   input.style.height = 'auto';
 
-  addChatMessage('user', question);
+  addChatMessage('user', q);
   addChatMessage('assistant', '', { streaming: true });
 
   try {
-    await streamChat(state.paperId, question, state.chatHistory, {
+    await streamChat(state.paperId, q, state.chatHistory, {
       onChunk: (_, full) => updateLastAssistantMessage(full),
-      onDone: (full) => {
+      onDone: full => {
         updateLastAssistantMessage(full, { done: true });
-        state.chatHistory.push({ role: 'user', content: question });
+        state.chatHistory.push({ role: 'user', content: q });
         state.chatHistory.push({ role: 'assistant', content: full });
       },
     });

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="6" fill="#0d1117"/>
+  <!-- Open book: left page -->
+  <path d="M6 8 Q6 7 7 7 L15 7 Q16 7 16 8 L16 24 Q16 23 15 23 L7 23 Q6 23 6 22 Z" fill="#1a2332" stroke="#58a6ff" stroke-width="0.8"/>
+  <!-- Open book: right page -->
+  <path d="M16 8 Q16 7 17 7 L25 7 Q26 7 26 8 L26 22 Q26 23 25 23 L17 23 Q16 23 16 24 Z" fill="#1a2332" stroke="#58a6ff" stroke-width="0.8"/>
+  <!-- Text lines left page -->
+  <line x1="8.5" y1="11" x2="14" y2="11" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <line x1="8.5" y1="13.5" x2="13" y2="13.5" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <line x1="8.5" y1="16" x2="14" y2="16" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <line x1="8.5" y1="18.5" x2="12" y2="18.5" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <!-- Text lines right page -->
+  <line x1="18" y1="11" x2="23.5" y2="11" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <line x1="18" y1="13.5" x2="22.5" y2="13.5" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <line x1="18" y1="16" x2="23.5" y2="16" stroke="#58a6ff" stroke-width="0.7" opacity="0.5"/>
+  <!-- AI sparkle -->
+  <path d="M24 21 L24.8 23.2 L27 24 L24.8 24.8 L24 27 L23.2 24.8 L21 24 L23.2 23.2 Z" fill="#58a6ff"/>
+  <path d="M20.5 20 L20.8 21 L21.8 21.3 L20.8 21.6 L20.5 22.6 L20.2 21.6 L19.2 21.3 L20.2 21 Z" fill="#58a6ff" opacity="0.6" transform="scale(0.7) translate(8.5 7)"/>
+</svg>

@@ -1,5 +1,7 @@
 import asyncio
 import os
+import pty
+import re
 from collections.abc import AsyncGenerator
 
 
@@ -10,8 +12,10 @@ def _clean_env() -> dict:
     return env
 
 
+MODEL = os.environ.get("PAPER_READER_MODEL", "claude-haiku-4-5-20251001")
+
+
 def chunk_text(text: str, max_tokens: int = 12000) -> list[str]:
-    """Chunk text to fit within token limits (rough: 1 token ≈ 4 chars)."""
     max_chars = max_tokens * 4
     if len(text) <= max_chars:
         return [text]
@@ -32,7 +36,6 @@ def chunk_text(text: str, max_tokens: int = 12000) -> list[str]:
 
 
 def get_paper_context(paper: dict, max_tokens: int = 24000) -> str:
-    """Build a context string from paper data, truncated to fit."""
     text = ""
     if paper.get("abstract"):
         text += f"Abstract: {paper['abstract']}\n\n"
@@ -43,22 +46,52 @@ def get_paper_context(paper: dict, max_tokens: int = 24000) -> str:
     return chunks[0] if chunks else text[:max_tokens * 4]
 
 
+def _strip_ansi(text: str) -> str:
+    """Remove terminal escape sequences from PTY output."""
+    text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+    text = re.sub(r'\x1b\][^\x07]*\x07', '', text)
+    text = re.sub(r'\x1b[()][AB012]', '', text)
+    text = text.replace('\r', '')
+    return text
+
+
 async def stream_claude(prompt: str) -> AsyncGenerator[str, None]:
-    """Run `claude -p` and stream stdout tokens."""
+    """Run `claude -p` with PTY for real-time unbuffered streaming."""
+    master_fd, slave_fd = pty.openpty()
+
     proc = await asyncio.create_subprocess_exec(
-        "claude", "-p", prompt,
-        stdout=asyncio.subprocess.PIPE,
+        "claude", "-p", prompt, "--model", MODEL,
+        stdout=slave_fd,
         stderr=asyncio.subprocess.PIPE,
         env=_clean_env(),
     )
+    os.close(slave_fd)
 
-    while True:
-        chunk = await proc.stdout.read(64)  # Read small chunks for streaming feel
-        if not chunk:
-            break
-        yield chunk.decode("utf-8", errors="replace")
+    loop = asyncio.get_event_loop()
 
-    await proc.wait()
+    try:
+        while True:
+            try:
+                data = await asyncio.wait_for(
+                    loop.run_in_executor(None, os.read, master_fd, 4096),
+                    timeout=1.0,
+                )
+                if not data:
+                    break
+                text = _strip_ansi(data.decode("utf-8", errors="replace"))
+                if text:
+                    yield text
+            except asyncio.TimeoutError:
+                if proc.returncode is not None:
+                    break
+            except OSError:
+                break
+    finally:
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+        await proc.wait()
 
     if proc.returncode != 0:
         stderr = await proc.stderr.read()
