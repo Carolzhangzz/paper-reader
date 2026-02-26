@@ -7,7 +7,6 @@ export function renderMarkdown(text) {
   if (typeof marked !== 'undefined') {
     return marked.parse(text);
   }
-  // Fallback: basic escaping
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -19,22 +18,15 @@ export function renderMarkdown(text) {
  * Show paper info in the left panel
  */
 export function showPaperInfo(paper) {
-  const titleEl = document.getElementById('paper-title');
-  const authorsEl = document.getElementById('paper-authors');
-  const abstractEl = document.getElementById('paper-abstract');
-  const infoEl = document.getElementById('paper-info');
-  const emptyEl = document.getElementById('empty-state');
-  const tabsEl = document.getElementById('tabs-container');
-
-  titleEl.textContent = paper.title || 'Untitled';
-  authorsEl.textContent = paper.authors?.length
+  document.getElementById('paper-title').textContent = paper.title || 'Untitled';
+  document.getElementById('paper-authors').textContent = paper.authors?.length
     ? paper.authors.join(', ')
-    : 'Unknown authors';
-  abstractEl.textContent = paper.abstract || '';
+    : '';
+  document.getElementById('paper-abstract').textContent = paper.abstract || '';
 
-  infoEl.classList.remove('hidden');
-  emptyEl.classList.add('hidden');
-  tabsEl.classList.remove('hidden');
+  document.getElementById('paper-info').classList.remove('hidden');
+  document.getElementById('empty-state').classList.add('hidden');
+  document.getElementById('tabs-container').classList.remove('hidden');
 }
 
 /**
@@ -50,34 +42,16 @@ export function renderSections(sections) {
   container.innerHTML = sections.map((s, i) => `
     <div class="section-item" data-index="${i}">
       <div class="section-heading">${escapeHtml(s.heading)}</div>
-      <div class="section-preview">${escapeHtml(s.content.slice(0, 200))}...</div>
+      <div class="section-preview">${escapeHtml(s.preview || '')}</div>
     </div>
   `).join('');
-
-  // Click to expand/collapse
-  container.querySelectorAll('.section-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const idx = parseInt(el.dataset.index);
-      const expanded = el.querySelector('.section-expanded');
-      if (expanded) {
-        expanded.remove();
-        return;
-      }
-      const div = document.createElement('div');
-      div.className = 'section-expanded';
-      div.textContent = sections[idx].content;
-      el.appendChild(div);
-    });
-  });
 }
 
 /**
- * Add a chat message to the chat panel
+ * Add a chat message
  */
 export function addChatMessage(role, content, { streaming = false } = {}) {
   const container = document.getElementById('chat-messages');
-
-  // Remove empty state
   const empty = container.querySelector('.chat-empty');
   if (empty) empty.remove();
 
@@ -100,7 +74,7 @@ export function addChatMessage(role, content, { streaming = false } = {}) {
 }
 
 /**
- * Update the last assistant message with new content (for streaming)
+ * Update the last assistant message (streaming)
  */
 export function updateLastAssistantMessage(content, { done = false } = {}) {
   const container = document.getElementById('chat-messages');
@@ -117,7 +91,7 @@ export function updateLastAssistantMessage(content, { done = false } = {}) {
 }
 
 /**
- * Stream content into a content area element
+ * Create a stream target for a content area
  */
 export function createStreamTarget(elementId) {
   const el = document.getElementById(elementId);
@@ -127,7 +101,6 @@ export function createStreamTarget(elementId) {
   return {
     update(text) {
       el.innerHTML = renderMarkdown(text);
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
     done(text) {
       el.innerHTML = renderMarkdown(text);
@@ -137,7 +110,7 @@ export function createStreamTarget(elementId) {
 }
 
 /**
- * Show a toast notification
+ * Show toast notification
  */
 export function showToast(message, type = 'error') {
   const existing = document.querySelector('.toast');
@@ -154,13 +127,9 @@ export function showToast(message, type = 'error') {
  * Show/hide loading state
  */
 export function setLoading(show, text = 'Loading paper...') {
-  const el = document.getElementById('loading-state');
-  const textEl = document.getElementById('loading-text');
-  textEl.textContent = text;
-  el.classList.toggle('hidden', !show);
+  document.getElementById('loading-text').textContent = text;
+  document.getElementById('loading-state').classList.toggle('hidden', !show);
 }
-
-// ===== Helpers =====
 
 function escapeHtml(str) {
   const div = document.createElement('div');
