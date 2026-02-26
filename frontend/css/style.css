@@ -67,6 +67,22 @@ main { flex: 1; display: flex; overflow: hidden; }
 .pane-header { padding: 6px 12px; border-bottom: 1px solid var(--border-light); background: var(--bg-secondary); font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .pane-body { flex: 1; overflow-y: auto; padding: 16px; font-size: 0.9rem; line-height: 1.8; }
 
+/* PDF Area (outline + viewer) */
+.pdf-area { flex: 1; display: flex; overflow: hidden; }
+.pane-header-left { display: flex; align-items: center; gap: 6px; }
+.outline-toggle svg { display: block; }
+
+/* Outline Panel */
+.outline-panel { width: 220px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width 0.2s ease, opacity 0.2s ease; }
+.outline-panel.collapsed { width: 0; border-right: none; opacity: 0; pointer-events: none; }
+.outline-header { padding: 8px 12px; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-light); flex-shrink: 0; }
+.outline-count { font-weight: 400; color: var(--text-muted); font-size: 0.68rem; }
+.outline-list { flex: 1; overflow-y: auto; list-style: none; padding: 4px 0; }
+.outline-item { padding: 6px 12px; font-size: 0.76rem; color: var(--text-secondary); cursor: pointer; border-left: 2px solid transparent; transition: all 0.15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.outline-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.outline-item.active { border-left-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.outline-item .section-num { color: var(--text-muted); margin-right: 4px; font-size: 0.68rem; }
+
 /* PDF Viewer */
 .pdf-viewer { flex: 1; overflow-y: auto; background: #1a1a2e; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; }
 .pdf-viewer canvas { max-width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
@@ -130,4 +146,5 @@ main { flex: 1; display: flex; overflow: hidden; }
   .pane-divider { width: auto; height: 1px; }
   .pane-pdf, .pane-right { min-height: 40vh; }
   .chat-panel { width: 100%; }
+  .outline-panel { width: 160px; }
 }

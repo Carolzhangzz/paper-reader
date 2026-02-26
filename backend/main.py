@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 from .models import LoadRequest, SummarizeRequest, ExtractRequest, TranslateRequest, ChatRequest
 from .paper_ingestion import load_paper, get_paper
 from .llm import stream_claude, get_paper_context
+from .translator import translate_sections
 from . import prompts
 
 app = FastAPI(title="Paper Reader")
@@ -19,21 +20,30 @@ app = FastAPI(title="Paper Reader")
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 
-# ===== SSE helper =====
+# ===== SSE helpers =====
 
 async def sse_from_claude(prompt: str):
-    """Run claude CLI and wrap output as SSE."""
     try:
         async for token in stream_claude(prompt):
-            data = json.dumps({"token": token})
-            yield f"data: {data}\n\n"
+            yield f"data: {json.dumps({'token': token})}\n\n"
         yield "data: [DONE]\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
 
+async def sse_from_translator(sections, target_lang):
+    """Translate sections via Google Translate, streaming each as SSE."""
+    try:
+        for heading, translated in translate_sections(sections, target_lang):
+            chunk = f"## {heading}\n\n{translated}\n\n"
+            yield f"data: {json.dumps({'token': chunk, 'section': heading})}\n\n"
+        yield "data: [DONE]\n\n"
+    except Exception as e:
+        logger.error(f"Translation error: {traceback.format_exc()}")
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+
 def build_prompt(system: str, user: str) -> str:
-    """Build a single prompt string for claude -p."""
     return f"{system}\n\n---\n\n{user}"
 
 
@@ -70,13 +80,9 @@ async def api_get_pdf(paper_id: str):
 async def api_summarize(req: SummarizeRequest):
     paper = get_paper(req.paper_id)
     if not paper:
-        raise HTTPException(status_code=404, detail="Paper not found. Please reload.")
-
+        raise HTTPException(status_code=404, detail="Paper not found.")
     context = get_paper_context(paper)
-    prompt = build_prompt(
-        prompts.SUMMARIZE_SYSTEM,
-        prompts.SUMMARIZE_USER.format(text=context),
-    )
+    prompt = build_prompt(prompts.SUMMARIZE_SYSTEM, prompts.SUMMARIZE_USER.format(text=context))
     return StreamingResponse(sse_from_claude(prompt), media_type="text/event-stream")
 
 
@@ -84,13 +90,9 @@ async def api_summarize(req: SummarizeRequest):
 async def api_extract(req: ExtractRequest):
     paper = get_paper(req.paper_id)
     if not paper:
-        raise HTTPException(status_code=404, detail="Paper not found. Please reload.")
-
+        raise HTTPException(status_code=404, detail="Paper not found.")
     context = get_paper_context(paper)
-    prompt = build_prompt(
-        prompts.EXTRACT_SYSTEM,
-        prompts.EXTRACT_USER.format(text=context),
-    )
+    prompt = build_prompt(prompts.EXTRACT_SYSTEM, prompts.EXTRACT_USER.format(text=context))
     return StreamingResponse(sse_from_claude(prompt), media_type="text/event-stream")
 
 
@@ -98,35 +100,30 @@ async def api_extract(req: ExtractRequest):
 async def api_translate(req: TranslateRequest):
     paper = get_paper(req.paper_id)
     if not paper:
-        raise HTTPException(status_code=404, detail="Paper not found. Please reload.")
+        raise HTTPException(status_code=404, detail="Paper not found.")
 
-    target = prompts.LANG_MAP.get(req.target_lang, "Chinese (简体中文)")
-    context = get_paper_context(paper, max_tokens=16000)
-    prompt = build_prompt(
-        prompts.TRANSLATE_SYSTEM.format(target_lang=target),
-        prompts.TRANSLATE_USER.format(target_lang=target, text=context),
+    lang_map = {"zh": "zh-CN", "en": "en"}
+    target = lang_map.get(req.target_lang, "zh-CN")
+
+    return StreamingResponse(
+        sse_from_translator(paper["sections"], target),
+        media_type="text/event-stream",
     )
-    return StreamingResponse(sse_from_claude(prompt), media_type="text/event-stream")
 
 
 @app.post("/api/paper/chat")
 async def api_chat(req: ChatRequest):
     paper = get_paper(req.paper_id)
     if not paper:
-        raise HTTPException(status_code=404, detail="Paper not found. Please reload.")
-
+        raise HTTPException(status_code=404, detail="Paper not found.")
     context = get_paper_context(paper, max_tokens=20000)
-
-    # Build conversation prompt
     parts = [prompts.CHAT_SYSTEM.format(context=context)]
     for msg in req.history[-10:]:
         role = "User" if msg["role"] == "user" else "Assistant"
         parts.append(f"{role}: {msg['content']}")
     parts.append(f"User: {req.question}")
     parts.append("Assistant:")
-
-    prompt = "\n\n".join(parts)
-    return StreamingResponse(sse_from_claude(prompt), media_type="text/event-stream")
+    return StreamingResponse(sse_from_claude("\n\n".join(parts)), media_type="text/event-stream")
 
 
 # ===== Serve Frontend =====

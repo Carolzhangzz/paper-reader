@@ -1,7 +1,7 @@
 import { loadPaper, streamSummarize, streamExtract, streamTranslate, streamChat } from './api.js';
 import { createStreamTarget, addChatMessage, updateLastAssistantMessage, showToast, setLoading, renderMarkdown } from './components.js';
 
-const state = { paperId: null, paper: null, chatHistory: [], pdfDoc: null, zoom: 1.0, summaryDone: false, keypointsDone: false };
+const state = { paperId: null, paper: null, chatHistory: [], pdfDoc: null, zoom: 1.0, summaryDone: false, keypointsDone: false, outlineOpen: true };
 
 document.addEventListener('DOMContentLoaded', () => {
   initPaperLoading();
@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initActions();
   initChat();
   initZoom();
+  initOutline();
 });
 
 // ===== Paper Loading =====
@@ -44,6 +45,7 @@ async function handleLoad(url) {
     document.getElementById('pane-summary').innerHTML = '<div class="pane-placeholder">Switch to this tab to auto-generate</div>';
     document.getElementById('pane-keypoints').innerHTML = '<div class="pane-placeholder">Switch to this tab to auto-generate</div>';
 
+    populateOutline(paper.sections || []);
     await renderPdf(paper.id);
     showToast(`Loaded: ${paper.numPages} pages`, 'success');
   } catch (err) {
@@ -105,6 +107,57 @@ function initZoom() {
     document.getElementById('zoom-level').textContent = Math.round(state.zoom * 100) + '%';
     renderAllPages();
   });
+}
+
+// ===== Outline Panel =====
+function initOutline() {
+  document.getElementById('toggle-outline').addEventListener('click', () => {
+    const panel = document.getElementById('outline-panel');
+    state.outlineOpen = !state.outlineOpen;
+    panel.classList.toggle('collapsed', !state.outlineOpen);
+  });
+}
+
+function populateOutline(sections) {
+  const list = document.getElementById('outline-list');
+  const count = document.getElementById('outline-count');
+  list.innerHTML = '';
+  if (!sections || sections.length === 0) {
+    list.innerHTML = '<li style="padding:12px;color:var(--text-muted);font-size:0.76rem">No sections detected</li>';
+    count.textContent = '';
+    return;
+  }
+  count.textContent = sections.length;
+  sections.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.className = 'outline-item';
+    li.title = s.heading;
+    li.innerHTML = `<span class="section-num">${i + 1}</span>${escapeHtml(s.heading)}`;
+    li.addEventListener('click', () => {
+      // Highlight active
+      list.querySelectorAll('.outline-item').forEach(el => el.classList.remove('active'));
+      li.classList.add('active');
+      // Search for section heading text in PDF pages and scroll to approximate position
+      scrollToSection(i, sections.length);
+    });
+    list.appendChild(li);
+  });
+}
+
+function scrollToSection(sectionIndex, totalSections) {
+  const viewer = document.getElementById('pdf-viewer');
+  if (!state.pdfDoc) return;
+  // Estimate: map section index to page position proportionally
+  const totalPages = state.pdfDoc.numPages;
+  const estimatedPage = Math.floor((sectionIndex / totalSections) * totalPages);
+  const canvases = viewer.querySelectorAll('canvas');
+  if (canvases[estimatedPage]) {
+    canvases[estimatedPage].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ===== Pane Tabs =====

@@ -55,17 +55,31 @@
 
   <!-- Main: PDF left + Translation right -->
   <main id="main-content" class="hidden">
-    <!-- Left: PDF Viewer -->
+    <!-- Left: Outline + PDF Viewer -->
     <section class="pane pane-pdf">
       <div class="pane-header">
-        <span id="pdf-title">Original PDF</span>
+        <div class="pane-header-left">
+          <button id="toggle-outline" class="btn btn-sm btn-ghost outline-toggle" title="Toggle outline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          </button>
+          <span id="pdf-title">Original PDF</span>
+        </div>
         <div class="pdf-controls">
           <button id="zoom-out" class="btn btn-sm">-</button>
           <span id="zoom-level">100%</span>
           <button id="zoom-in" class="btn btn-sm">+</button>
         </div>
       </div>
-      <div id="pdf-viewer" class="pdf-viewer"></div>
+      <div class="pdf-area">
+        <aside id="outline-panel" class="outline-panel">
+          <div class="outline-header">
+            <span>Sections</span>
+            <span id="outline-count" class="outline-count"></span>
+          </div>
+          <ul id="outline-list" class="outline-list"></ul>
+        </aside>
+        <div id="pdf-viewer" class="pdf-viewer"></div>
+      </div>
     </section>
 
     <!-- Divider -->
