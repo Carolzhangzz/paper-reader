@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Reader</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <img src="favicon.svg" alt="" width="24" height="24">
+      <h1>Paper Reader</h1>
+    </div>
+    <div class="header-center">
+      <div class="input-bar">
+        <input type="text" id="paper-url" placeholder="Paste arXiv URL, DOI, or any paper link..." autocomplete="off">
+        <button id="load-btn" class="btn btn-primary">Load</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <select id="translate-lang">
+        <option value="zh">→ 中文</option>
+        <option value="en">→ English</option>
+      </select>
+      <button id="btn-translate" class="btn btn-primary" disabled>Translate</button>
+      <button id="btn-chat-toggle" class="btn" disabled>Q&A</button>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <div id="loading-state" class="loading-bar hidden">
+    <div class="spinner-sm"></div>
+    <span id="loading-text">Loading paper...</span>
+  </div>
+
+  <!-- Empty State -->
+  <div id="empty-state" class="empty-state">
+    <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+      <polyline points="14 2 14 8 20 8"/>
+    </svg>
+    <h2>Paste a paper URL to get started</h2>
+    <p>Supports arXiv, DOI, Semantic Scholar, HuggingFace, ADS, and direct PDF links</p>
+    <div class="example-links">
+      <a href="#" class="example-link" data-url="https://arxiv.org/abs/2301.00234">ICL Survey</a>
+      <a href="#" class="example-link" data-url="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>
+    </div>
+  </div>
+
+  <!-- Main: PDF left + Translation right -->
+  <main id="main-content" class="hidden">
+    <!-- Left: Outline + PDF Viewer -->
+    <section class="pane pane-pdf">
+      <div class="pane-header">
+        <div class="pane-header-left">
+          <button id="toggle-outline" class="btn btn-sm btn-ghost outline-toggle" title="Toggle outline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          </button>
+          <span id="pdf-title">Original PDF</span>
+        </div>
+        <div class="pdf-controls">
+          <button id="zoom-out" class="btn btn-sm">-</button>
+          <span id="zoom-level">100%</span>
+          <button id="zoom-in" class="btn btn-sm">+</button>
+        </div>
+      </div>
+      <div class="pdf-area">
+        <aside id="outline-panel" class="outline-panel">
+          <div class="outline-header">
+            <span>Sections</span>
+            <span id="outline-count" class="outline-count"></span>
+          </div>
+          <ul id="outline-list" class="outline-list"></ul>
+        </aside>
+        <div id="pdf-viewer" class="pdf-viewer"></div>
+      </div>
+    </section>
+
+    <!-- Divider -->
+    <div class="pane-divider"></div>
+
+    <!-- Right: Translation -->
+    <section class="pane pane-right">
+      <div class="pane-header">
+        <div class="pane-tabs">
+          <button class="pane-tab active" data-pane="translation">Translation</button>
+          <button class="pane-tab" data-pane="summary">Summary</button>
+          <button class="pane-tab" data-pane="keypoints">Key Points</button>
+        </div>
+      </div>
+      <div id="pane-translation" class="pane-body pane-content active">
+        <div class="pane-placeholder">Click <strong>Translate</strong> to start</div>
+      </div>
+      <div id="pane-summary" class="pane-body pane-content">
+        <div class="pane-placeholder">Switch to this tab and it will auto-generate</div>
+      </div>
+      <div id="pane-keypoints" class="pane-body pane-content">
+        <div class="pane-placeholder">Switch to this tab and it will auto-generate</div>
+      </div>
+    </section>
+
+    <!-- Chat Panel -->
+    <div id="chat-panel" class="chat-panel hidden">
+      <div class="chat-header">
+        <h3>Q&A</h3>
+        <div>
+          <button id="clear-chat" class="btn btn-ghost btn-sm">Clear</button>
+          <button id="close-chat" class="btn btn-ghost btn-sm">✕</button>
+        </div>
+      </div>
+      <div id="chat-messages" class="chat-messages">
+        <div class="chat-empty"><p>Ask about the paper</p></div>
+      </div>
+      <div id="suggested-questions" class="suggested-questions">
+        <button class="suggestion" data-q="What is the main contribution?">Main contribution?</button>
+        <button class="suggestion" data-q="Explain the methodology simply">Methodology?</button>
+        <button class="suggestion" data-q="What are the limitations?">Limitations?</button>
+      </div>
+      <div class="chat-input-bar">
+        <textarea id="chat-input" placeholder="Ask..." rows="1"></textarea>
+        <button id="chat-send" class="btn btn-primary btn-sm">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
