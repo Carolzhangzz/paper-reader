@@ -12,6 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
   initOutline();
 });
 
+// ===== Error mapping =====
+function friendlyError(err) {
+  const msg = err.message || String(err);
+  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) return 'Network error — please check your connection and try again.';
+  if (msg.includes('404')) return 'Paper not found. Please check the URL and try again.';
+  if (msg.includes('403')) return 'Access denied. This paper may not be publicly available.';
+  if (msg.includes('timeout') || msg.includes('Timeout')) return 'Request timed out. Please try again.';
+  if (msg.includes('CORS')) return 'Cannot access this resource due to cross-origin restrictions.';
+  if (msg.includes('Invalid URL') || msg.includes('invalid url')) return 'Invalid URL format. Please enter a valid paper link.';
+  if (msg.includes('PDF')) return 'Could not load the PDF. The file may be corrupted or unavailable.';
+  return msg;
+}
+
 // ===== Paper Loading =====
 function initPaperLoading() {
   const urlInput = document.getElementById('paper-url');
@@ -26,7 +39,12 @@ function initPaperLoading() {
 async function handleLoad(url) {
   url = url.trim();
   if (!url) return showToast('Please enter a URL');
+
+  const loadBtn = document.getElementById('load-btn');
+  loadBtn.disabled = true;
+  loadBtn.textContent = 'Loading...';
   setLoading(true, 'Loading paper...');
+
   try {
     const paper = await loadPaper(url);
     state.paperId = paper.id;
@@ -42,20 +60,35 @@ async function handleLoad(url) {
     document.getElementById('btn-chat-toggle').disabled = false;
 
     document.getElementById('pane-translation').innerHTML = '<div class="pane-placeholder">Click <strong>Translate</strong> to start</div>';
-    document.getElementById('pane-summary').innerHTML = '<div class="pane-placeholder">Switch to this tab to auto-generate</div>';
-    document.getElementById('pane-keypoints').innerHTML = '<div class="pane-placeholder">Switch to this tab to auto-generate</div>';
+    document.getElementById('pane-summary').innerHTML = '<div class="pane-placeholder">Click the <strong>Summary</strong> tab to generate an AI summary</div>';
+    document.getElementById('pane-keypoints').innerHTML = '<div class="pane-placeholder">Click the <strong>Key Points</strong> tab to extract key findings</div>';
 
+    showMetadata(paper);
     populateOutline(paper.sections || []);
     await renderPdf(paper.id);
     showToast(`Loaded: ${paper.numPages} pages`, 'success');
   } catch (err) {
-    showToast(err.message);
+    showToast(friendlyError(err));
   } finally {
     setLoading(false);
+    loadBtn.disabled = false;
+    loadBtn.textContent = 'Load';
   }
 }
 
-// ===== PDF Rendering (Retina-sharp) =====
+// ===== Paper Metadata =====
+function showMetadata(paper) {
+  const el = document.getElementById('paper-metadata');
+  if (!paper.title && !paper.authors) { el.classList.add('hidden'); return; }
+  let html = '';
+  if (paper.title) html += `<div class="meta-title">${escapeHtml(paper.title)}</div>`;
+  if (paper.authors && paper.authors.length) html += `<div class="meta-authors">${escapeHtml(paper.authors.join(', '))}</div>`;
+  if (paper.date) html += `<div class="meta-date">${escapeHtml(paper.date)}</div>`;
+  el.innerHTML = html;
+  el.classList.remove('hidden');
+}
+
+// ===== PDF Rendering (Retina-sharp, progressive) =====
 async function renderPdf(paperId) {
   const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs');
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
@@ -64,6 +97,7 @@ async function renderPdf(paperId) {
   state.pdfDoc = doc;
   state.zoom = 1.0;
   document.getElementById('zoom-level').textContent = '100%';
+  updatePageIndicator(0, doc.numPages);
   await renderAllPages();
 }
 
@@ -73,27 +107,46 @@ async function renderAllPages() {
   if (!state.pdfDoc) return;
 
   const dpr = window.devicePixelRatio || 1;
+  const totalPages = state.pdfDoc.numPages;
 
-  for (let i = 1; i <= state.pdfDoc.numPages; i++) {
+  for (let i = 1; i <= totalPages; i++) {
     const page = await state.pdfDoc.getPage(i);
-    // CSS size = zoom * 1.2 base scale
     const cssScale = state.zoom * 1.2;
     const viewport = page.getViewport({ scale: cssScale });
 
     const canvas = document.createElement('canvas');
-    // Render at higher resolution for sharpness
     canvas.width = viewport.width * dpr;
     canvas.height = viewport.height * dpr;
-    // Display at CSS size
     canvas.style.width = viewport.width + 'px';
     canvas.style.height = viewport.height + 'px';
+    canvas.dataset.page = i;
 
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
     viewer.appendChild(canvas);
     await page.render({ canvasContext: ctx, viewport }).promise;
+    updatePageIndicator(i, totalPages);
   }
+
+  // Track scroll position for page indicator
+  viewer.addEventListener('scroll', () => {
+    const canvases = viewer.querySelectorAll('canvas');
+    let currentPage = 1;
+    for (const c of canvases) {
+      if (c.offsetTop + c.offsetHeight / 2 > viewer.scrollTop) {
+        currentPage = parseInt(c.dataset.page) || 1;
+        break;
+      }
+    }
+    updatePageIndicator(currentPage, totalPages);
+  });
+}
+
+function updatePageIndicator(current, total) {
+  const el = document.getElementById('page-indicator');
+  if (!el) return;
+  el.textContent = current > 0 ? `${current} / ${total}` : `${total} pages`;
 }
 
 function initZoom() {
@@ -134,10 +187,8 @@ function populateOutline(sections) {
     li.title = s.heading;
     li.innerHTML = `<span class="section-num">${i + 1}</span>${escapeHtml(s.heading)}`;
     li.addEventListener('click', () => {
-      // Highlight active
       list.querySelectorAll('.outline-item').forEach(el => el.classList.remove('active'));
       li.classList.add('active');
-      // Search for section heading text in PDF pages and scroll to approximate position
       scrollToSection(i, sections.length);
     });
     list.appendChild(li);
@@ -147,7 +198,6 @@ function populateOutline(sections) {
 function scrollToSection(sectionIndex, totalSections) {
   const viewer = document.getElementById('pdf-viewer');
   if (!state.pdfDoc) return;
-  // Estimate: map section index to page position proportionally
   const totalPages = state.pdfDoc.numPages;
   const estimatedPage = Math.floor((sectionIndex / totalSections) * totalPages);
   const canvases = viewer.querySelectorAll('canvas');
@@ -183,7 +233,7 @@ async function autoSummarize() {
       onChunk: (_, full) => target.update(full),
       onDone: full => target.done(full),
     });
-  } catch (err) { target.done(`Error: ${err.message}`); state.summaryDone = false; }
+  } catch (err) { target.done(`Error: ${friendlyError(err)}`); state.summaryDone = false; }
 }
 
 async function autoExtract() {
@@ -194,7 +244,7 @@ async function autoExtract() {
       onChunk: (_, full) => target.update(full),
       onDone: full => target.done(full),
     });
-  } catch (err) { target.done(`Error: ${err.message}`); state.keypointsDone = false; }
+  } catch (err) { target.done(`Error: ${friendlyError(err)}`); state.keypointsDone = false; }
 }
 
 // ===== Actions =====
@@ -213,7 +263,7 @@ function initActions() {
         onDone: full => { target.done(full); btn.disabled = false; btn.textContent = 'Translate'; },
       });
     } catch (err) {
-      target.done(`Error: ${err.message}`);
+      target.done(`Error: ${friendlyError(err)}`);
       btn.disabled = false;
       btn.textContent = 'Translate';
     }
@@ -237,6 +287,8 @@ function initChat() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 80) + 'px'; });
   document.getElementById('clear-chat').addEventListener('click', () => {
+    if (state.chatHistory.length === 0) return;
+    if (!confirm('Clear all chat messages?')) return;
     state.chatHistory = [];
     document.getElementById('chat-messages').innerHTML = '<div class="chat-empty"><p>Ask about the paper</p></div>';
   });
@@ -247,9 +299,11 @@ function initChat() {
 
 async function sendMessage() {
   const input = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
   const q = input.value.trim();
   if (!q || !state.paperId) return;
   input.value = ''; input.style.height = 'auto';
+  sendBtn.disabled = true;
   addChatMessage('user', q);
   addChatMessage('assistant', '', { streaming: true });
   try {
@@ -258,7 +312,11 @@ async function sendMessage() {
       onDone: full => {
         updateLastAssistantMessage(full, { done: true });
         state.chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: full });
+        sendBtn.disabled = false;
       },
     });
-  } catch (err) { updateLastAssistantMessage(`Error: ${err.message}`, { done: true }); }
+  } catch (err) {
+    updateLastAssistantMessage(`Error: ${friendlyError(err)}`, { done: true });
+    sendBtn.disabled = false;
+  }
 }

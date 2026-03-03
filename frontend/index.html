@@ -24,12 +24,13 @@
       </div>
     </div>
     <div class="header-right">
-      <select id="translate-lang">
-        <option value="zh">→ 中文</option>
-        <option value="en">→ English</option>
+      <label for="translate-lang" class="sr-only">Target language</label>
+      <select id="translate-lang" aria-label="Target language">
+        <option value="zh">中文</option>
+        <option value="en">English</option>
       </select>
       <button id="btn-translate" class="btn btn-primary" disabled>Translate</button>
-      <button id="btn-chat-toggle" class="btn" disabled>Q&A</button>
+      <button id="btn-chat-toggle" class="btn" disabled>Ask AI</button>
     </div>
   </header>
 
@@ -63,6 +64,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
           </button>
           <span id="pdf-title">Original PDF</span>
+          <span id="page-indicator" class="page-indicator"></span>
         </div>
         <div class="pdf-controls">
           <button id="zoom-out" class="btn btn-sm">-</button>
@@ -87,6 +89,7 @@
 
     <!-- Right: Translation -->
     <section class="pane pane-right">
+      <div id="paper-metadata" class="paper-meta hidden"></div>
       <div class="pane-header">
         <div class="pane-tabs">
           <button class="pane-tab active" data-pane="translation">Translation</button>
@@ -98,10 +101,10 @@
         <div class="pane-placeholder">Click <strong>Translate</strong> to start</div>
       </div>
       <div id="pane-summary" class="pane-body pane-content">
-        <div class="pane-placeholder">Switch to this tab and it will auto-generate</div>
+        <div class="pane-placeholder">Click the <strong>Summary</strong> tab to generate an AI summary</div>
       </div>
       <div id="pane-keypoints" class="pane-body pane-content">
-        <div class="pane-placeholder">Switch to this tab and it will auto-generate</div>
+        <div class="pane-placeholder">Click the <strong>Key Points</strong> tab to extract key findings</div>
       </div>
     </section>
 
@@ -123,7 +126,7 @@
         <button class="suggestion" data-q="What are the limitations?">Limitations?</button>
       </div>
       <div class="chat-input-bar">
-        <textarea id="chat-input" placeholder="Ask..." rows="1"></textarea>
+        <textarea id="chat-input" placeholder="Ask anything about this paper..." rows="1"></textarea>
         <button id="chat-send" class="btn btn-primary btn-sm">Send</button>
       </div>
     </div>

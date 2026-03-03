@@ -9,8 +9,28 @@ export function createStreamTarget(elementId) {
   el.classList.add('streaming');
   return {
     update(text) { el.innerHTML = '<div class="content-area">' + renderMarkdown(text) + '</div>'; },
-    done(text) { el.innerHTML = '<div class="content-area">' + renderMarkdown(text) + '</div>'; el.classList.remove('streaming'); },
+    done(text) {
+      const html = '<div class="content-area">' + renderMarkdown(text) + '</div>';
+      el.innerHTML = html;
+      el.classList.remove('streaming');
+      addCopyButton(el, text);
+    },
   };
+}
+
+function addCopyButton(container, rawText) {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'Copy';
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(rawText);
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    } catch { btn.textContent = 'Failed'; setTimeout(() => { btn.textContent = 'Copy'; }, 2000); }
+  });
+  container.insertBefore(btn, container.firstChild);
 }
 
 export function addChatMessage(role, content, { streaming = false } = {}) {
